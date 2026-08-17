@@ -45,7 +45,7 @@ jobs:
             --severity-threshold=high --sarif-file-output=snyk-sca.sarif || true
       - name: Upload SARIF (Snyk SCA)
         if: always() && hashFiles('snyk-sca.sarif') != ''
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: snyk-sca.sarif
           category: snyk-sca
@@ -69,7 +69,7 @@ jobs:
         run: ./snyk code test --sarif-file-output=snyk-code.sarif || true
       - name: Upload SARIF (Snyk Code)
         if: always() && hashFiles('snyk-code.sarif') != ''
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: snyk-code.sarif
           category: snyk-code
@@ -94,7 +94,7 @@ jobs:
           severity: HIGH,CRITICAL
           exit-code: '1' # falha o pipeline se achar HIGH/CRITICAL
       - name: Upload SARIF (Trivy imagem)
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: trivy-image.sarif
@@ -115,7 +115,7 @@ jobs:
           output: trivy-config.sarif
           exit-code: '1' # bloqueia o merge se achar misconfig (ex.: container rodando como root)
       - name: Upload SARIF (Trivy config)
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: trivy-config.sarif
