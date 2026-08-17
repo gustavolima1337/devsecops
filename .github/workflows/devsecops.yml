@@ -113,13 +113,35 @@ jobs:
           scan-ref: .
           format: sarif
           output: trivy-config.sarif
-          exit-code: '0' # apenas relata; mude para '1' para bloquear o merge
+          exit-code: '1' # bloqueia o merge se achar misconfig (ex.: container rodando como root)
       - name: Upload SARIF (Trivy config)
         uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
           sarif_file: trivy-config.sarif
           category: trivy-config
+
+  snyk-monitor:
+    name: Snyk Monitor (snapshot contínuo)
+    needs: [sca-snyk, sast-snyk-code, container-trivy, iac-trivy]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: Instalar Snyk CLI
+        run: |
+          curl -sSL -o ./snyk https://downloads.snyk.io/cli/stable/snyk-linux
+          chmod +x ./snyk
+      - name: Snyk Monitor (registra snapshot no dashboard do Snyk)
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          ./snyk monitor --file=requirements.txt --package-manager=pip \
+            --project-name=devsecops-demo || true
 
   deploy:
     name: Deploy (protegido pelos gates de segurança)

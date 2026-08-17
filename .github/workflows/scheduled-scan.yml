@@ -1,0 +1,63 @@
+name: Scheduled Security Scan
+
+# Roda mesmo sem nenhum push — pega CVEs novas descobertas DEPOIS que o
+# código já está na main, em dependências que não mudaram.
+on:
+  schedule:
+    - cron: '0 6 * * *' # todo dia às 06:00 UTC
+  workflow_dispatch: # permite disparar manualmente pela aba Actions
+
+permissions:
+  contents: read
+  security-events: write
+  issues: write
+
+jobs:
+  scheduled-trivy:
+    name: Trivy - Scan agendado da imagem publicada
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Build da imagem a partir da main atual
+        run: docker build -t devsecops-demo:scheduled .
+
+      - name: Trivy - scan da imagem
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: devsecops-demo:scheduled
+          format: sarif
+          output: trivy-scheduled.sarif
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+
+      - name: Upload SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-scheduled.sarif
+          category: trivy-scheduled
+
+      - name: Abrir issue se encontrou CVE nova
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Scan agendado do Trivy encontrou CVE HIGH/CRITICAL (${new Date().toISOString().slice(0, 10)})`,
+              body: [
+                'O scan agendado (roda todo dia, independente de push) encontrou',
+                'vulnerabilidade HIGH/CRITICAL na imagem construída a partir da `main`.',
+                '',
+                'Isso normalmente significa que uma CVE nova foi divulgada para uma',
+                'dependência que já estava em produção, não que alguém quebrou o código.',
+                '',
+                `Detalhes: Security > Code scanning alerts (categoria \`trivy-scheduled\`)`,
+                `Log completo: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              ].join('\n'),
+              labels: ['security', 'trivy'],
+            })

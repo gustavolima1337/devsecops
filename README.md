@@ -41,7 +41,8 @@ build-and-test (pytest)
    ├── sast-snyk-code   → Snyk Code: escaneia o código-fonte (SAST)
    ├── container-trivy  → build da imagem + Trivy escaneia CVEs da imagem
    └── iac-trivy        → Trivy escaneia Dockerfile (misconfig/best practices)
-        └── deploy       (só roda em push na main, e só se todos os gates passarem)
+        ├── snyk-monitor → snapshot contínuo no dashboard do Snyk (só em push na main)
+        └── deploy        (só roda em push na main, e só se todos os gates passarem)
 ```
 
 Todos os jobs publicam SARIF no GitHub Code Scanning (aba **Security**), então
@@ -50,6 +51,25 @@ os achados de Snyk e Trivy aparecem lado a lado no mesmo painel.
 Para bloquear merges com vulnerabilidade alta, configure em
 **Settings → Branches → Branch protection rule (main)** os checks
 `sca-snyk`, `sast-snyk-code`, `container-trivy` e `iac-trivy` como obrigatórios.
+
+## Monitoramento contínuo (o que acontece depois do deploy)
+
+`snyk test` e `trivy image` só enxergam vulnerabilidade que **já existe** no
+momento do scan. Mas CVEs novas são divulgadas todo dia em bibliotecas que
+você já tem em produção há meses, sem você ter mudado uma linha de código.
+Duas peças cobrem isso:
+
+- **`snyk-monitor`** (dentro do `devsecops.yml`) — roda `snyk monitor` toda
+  vez que a `main` é atualizada. Diferente do `snyk test` (que só imprime o
+  resultado e sai), o `monitor` manda um snapshot das dependências pro
+  dashboard do Snyk. Se uma CVE nova for divulgada depois, o Snyk te avisa
+  por e-mail sem você precisar rodar nada de novo.
+- **`.github/workflows/scheduled-scan.yml`** — roda sozinho todo dia às 06:00
+  UTC (`cron`), independente de qualquer push. Builda a imagem a partir da
+  `main` atual e roda `trivy image` nela. Se achar HIGH/CRITICAL, abre uma
+  **issue automaticamente** no repositório com o link pro log e pro SARIF.
+  Dá pra disparar manualmente também, pela aba Actions → "Scheduled Security
+  Scan" → **Run workflow**.
 
 ## Onde entra o Dependabot (no momento do deploy)
 
