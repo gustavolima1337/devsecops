@@ -15,7 +15,7 @@ jobs:
     name: Build & Testes Unitários
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -28,7 +28,7 @@ jobs:
     needs: build-and-test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -58,7 +58,7 @@ jobs:
     needs: build-and-test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Instalar Snyk CLI
         run: |
           curl -sSL -o ./snyk https://downloads.snyk.io/cli/stable/snyk-linux
@@ -82,7 +82,7 @@ jobs:
     needs: build-and-test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build da imagem
         run: docker build -t devsecops-demo:${{ github.sha }} .
       - name: Trivy - scan da imagem (CVEs de SO + libs)
@@ -105,7 +105,7 @@ jobs:
     needs: build-and-test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Trivy - scan de configuração (Dockerfile, compose, etc.)
         uses: aquasecurity/trivy-action@master
         with:
@@ -127,7 +127,7 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -150,7 +150,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Deploy simulado
         run: |
           echo "Gates de segurança aprovados: Snyk SCA, Snyk Code, Trivy imagem, Trivy IaC."
