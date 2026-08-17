@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Ambientes virtuais (caso alguém crie um localmente)
+venv/
+.venv/
+
+# Saídas locais de scan (não fazem sentido versionadas)
+vulnerabilities.txt
+*.sarif
+
+# Docker
+*.log

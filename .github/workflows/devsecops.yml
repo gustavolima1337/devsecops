@@ -1,0 +1,127 @@
+name: DevSecOps Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  security-events: write # necessário para publicar SARIF no GitHub Code Scanning
+
+jobs:
+  build-and-test:
+    name: Build & Testes Unitários
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      - run: pip install -r requirements-dev.txt
+      - run: pytest -v
+
+  sca-snyk:
+    name: SCA - Snyk (dependências Python)
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: Snyk Open Source (test de vulnerabilidades conhecidas)
+        uses: snyk/actions/python-3.10@master
+        continue-on-error: true # não bloqueia enquanto ainda gera o relatório
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high --sarif-file-output=snyk-sca.sarif
+      - name: Upload SARIF (Snyk SCA)
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: snyk-sca.sarif
+          category: snyk-sca
+
+  sast-snyk-code:
+    name: SAST - Snyk Code (análise estática)
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Snyk Code (SAST)
+        uses: snyk/actions/python-3.10@master
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          command: code test
+          args: --sarif-file-output=snyk-code.sarif
+      - name: Upload SARIF (Snyk Code)
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: snyk-code.sarif
+          category: snyk-code
+
+  container-trivy:
+    name: Trivy - Imagem de Container
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build da imagem
+        run: docker build -t devsecops-demo:${{ github.sha }} .
+      - name: Trivy - scan da imagem (CVEs de SO + libs)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: devsecops-demo:${{ github.sha }}
+          format: sarif
+          output: trivy-image.sarif
+          severity: HIGH,CRITICAL
+          exit-code: '1' # falha o pipeline se achar HIGH/CRITICAL
+      - name: Upload SARIF (Trivy imagem)
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-image.sarif
+          category: trivy-image
+
+  iac-trivy:
+    name: Trivy - IaC / Dockerfile misconfig
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trivy - scan de configuração (Dockerfile, compose, etc.)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: config
+          scan-ref: .
+          format: sarif
+          output: trivy-config.sarif
+          exit-code: '0' # apenas relata; mude para '1' para bloquear o merge
+      - name: Upload SARIF (Trivy config)
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-config.sarif
+          category: trivy-config
+
+  deploy:
+    name: Deploy (protegido pelos gates de segurança)
+    needs: [sca-snyk, sast-snyk-code, container-trivy, iac-trivy]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy simulado
+        run: |
+          echo "Gates de segurança aprovados: Snyk SCA, Snyk Code, Trivy imagem, Trivy IaC."
+          echo "Deploy autorizado para produção."
+          # aqui entraria o passo real: kubectl apply, docker push para o registry, terraform apply, etc.
