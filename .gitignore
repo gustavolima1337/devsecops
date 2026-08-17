@@ -13,3 +13,6 @@ vulnerabilities.txt
 
 # Docker
 *.log
+
+
+test.txt

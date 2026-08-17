@@ -33,19 +33,25 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -r requirements.txt
+      - name: Instalar Snyk CLI
+        run: |
+          curl -sSL -o ./snyk https://downloads.snyk.io/cli/stable/snyk-linux
+          chmod +x ./snyk
       - name: Snyk Open Source (test de vulnerabilidades conhecidas)
-        uses: snyk/actions/python-3.10@master
-        continue-on-error: true # não bloqueia enquanto ainda gera o relatório
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          args: --severity-threshold=high --sarif-file-output=snyk-sca.sarif
+        run: |
+          ./snyk test --file=requirements.txt --package-manager=pip \
+            --severity-threshold=high --sarif-file-output=snyk-sca.sarif || true
       - name: Upload SARIF (Snyk SCA)
+        if: always() && hashFiles('snyk-sca.sarif') != ''
         uses: github/codeql-action/upload-sarif@v3
-        if: always()
         with:
           sarif_file: snyk-sca.sarif
           category: snyk-sca
+      - name: Aviso se o SARIF não foi gerado
+        if: always() && hashFiles('snyk-sca.sarif') == ''
+        run: echo "::warning::snyk-sca.sarif não foi criado — verifique se SNYK_TOKEN está configurado nos Secrets do repositório."
 
   sast-snyk-code:
     name: SAST - Snyk Code (análise estática)
@@ -53,20 +59,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Instalar Snyk CLI
+        run: |
+          curl -sSL -o ./snyk https://downloads.snyk.io/cli/stable/snyk-linux
+          chmod +x ./snyk
       - name: Snyk Code (SAST)
-        uses: snyk/actions/python-3.10@master
-        continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          command: code test
-          args: --sarif-file-output=snyk-code.sarif
+        run: ./snyk code test --sarif-file-output=snyk-code.sarif || true
       - name: Upload SARIF (Snyk Code)
+        if: always() && hashFiles('snyk-code.sarif') != ''
         uses: github/codeql-action/upload-sarif@v3
-        if: always()
         with:
           sarif_file: snyk-code.sarif
           category: snyk-code
+      - name: Aviso se o SARIF não foi gerado
+        if: always() && hashFiles('snyk-code.sarif') == ''
+        run: echo "::warning::snyk-code.sarif não foi criado — confira SNYK_TOKEN e se o Snyk Code está habilitado na organização (Settings > Snyk Code)."
 
   container-trivy:
     name: Trivy - Imagem de Container
