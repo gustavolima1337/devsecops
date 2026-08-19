@@ -14,7 +14,7 @@ código como está.
 ├── src/app.py                 # app Flask com endpoints vulneráveis + versões seguras
 ├── tests/test_app.py          # testes funcionais + regressão de segurança (pytest)
 ├── requirements.txt           # deps com versões antigas (achados para Snyk SCA/Trivy)
-├── Dockerfile                 # imagem base desatualizada + roda como root (Trivy)
+├── Dockerfile                 # HEALTHCHECK, usuário não-root (fix aplicado via Trivy IaC)
 ├── demo.sh                    # roda tudo localmente (testes + snyk + trivy)
 ├── .github/workflows/
 │   ├── devsecops.yml          # a esteira em si (CI)
@@ -26,10 +26,10 @@ código como está.
 
 | Local | Tipo | Detectado por |
 |---|---|---|
-| `requirements.txt` (Flask 2.2.2, PyYAML 5.1, requests 2.19.1) | Dependências com CVEs conhecidas (ex.: CVE-2023-30861 no Flask) | **Snyk SCA** (`snyk test`), Trivy (`trivy fs`) |
+| `requirements.txt` (PyYAML 5.1, requests 2.19.1) | Dependências com CVEs conhecidas (ex.: CVE-2019-20477 no PyYAML) | **Snyk SCA** (`snyk test`), Trivy (`trivy fs`) |
 | `src/app.py :: /load-config` | Desserialização insegura (`yaml.load` sem safe loader) | **Snyk Code** (SAST) |
 | `src/app.py :: /ping-vulnerable` | Command Injection (`shell=True` + concatenação) | **Snyk Code** (SAST) |
-| `Dockerfile` (base `python:3.8-slim`, roda como root) | CVEs de SO + má prática de container | **Trivy** (`trivy image`, `trivy config`) |
+| ~~`Dockerfile` rodando como root~~ | Má prática de container — **corrigido**: `USER appuser` + `HEALTHCHECK` adicionados após o Trivy IaC sinalizar `DS-0002` | **Trivy** (`trivy config`) |
 
 Cada endpoint vulnerável tem uma versão `-safe` ao lado, mostrando o fix.
 

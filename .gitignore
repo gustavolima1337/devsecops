@@ -9,6 +9,8 @@ venv/
 
 # Saídas locais de scan (não fazem sentido versionadas)
 vulnerabilities.txt
+snyk_test.txt
+trivy_image.txt
 *.sarif
 
 # Docker

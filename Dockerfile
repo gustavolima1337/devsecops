@@ -17,7 +17,10 @@ EXPOSE 5000
 
 # Rodando como root de propósito — Trivy (misconfig) deve sinalizar isso.
 # Correção sugerida:
-# RUN useradd -m appuser
-# USER appuser
+RUN useradd -m appuser
+USER appuser
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:5000/health', timeout=2).status == 200 else 1)"
 
 CMD ["python", "src/app.py"]
