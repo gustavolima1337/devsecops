@@ -1,5 +1,5 @@
 # Imagem base propositalmente desatualizada para o Trivy encontrar CVEs de SO
-FROM python:3.8-slim
+FROM python:3.14-slim
 
 # Sem isso, o stdout do container fica bufferizado e o print() de
 # /load-config (a prova de execução de código) não aparece em `docker logs`.
